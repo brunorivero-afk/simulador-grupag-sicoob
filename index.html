@@ -116,6 +116,18 @@
   .dash-recommend{margin-top:16px;display:flex;align-items:center;gap:10px;font-size:14px;}
   .dash-recommend .arrow{font-size:18px;}
 
+  .mod-compare{margin-top:18px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:16px 18px 18px;}
+  .mc-head{font-family:var(--f-display);font-weight:700;font-size:15px;margin:0 0 3px;}
+  .mc-sub{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft);}
+  .mc-row{display:grid;grid-template-columns:1fr auto auto;gap:8px 16px;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px;}
+  .mc-row:last-child{border-bottom:none;}
+  .mc-row .ml{color:var(--ink-soft);}
+  .mc-row .mv{font:600 13px var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;min-width:9ch;color:var(--ink);}
+  .mc-row .mv.win{color:var(--good);font-weight:700;}
+  .mc-row .mv.win::after{content:" ✓";font-size:11px;}
+  .mc-head-row{display:grid;grid-template-columns:1fr auto auto;gap:8px 16px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);padding-bottom:6px;}
+  .mc-head-row span:not(:first-child){text-align:right;min-width:9ch;}
+
   .dash-plus{margin-top:18px;background:var(--sicoob-soft);border:1.5px solid var(--sicoob-line);border-radius:14px;padding:16px 18px 18px;}
   .dsp-head{display:flex;align-items:center;gap:9px;margin-bottom:6px;}
   .dsp-dot{width:9px;height:9px;border-radius:3px;flex:none;background:var(--sicoob);}
@@ -388,6 +400,15 @@
       <span id="d_recommendText">—</span>
     </div>
 
+    <div class="mod-compare">
+      <h3 class="mc-head">Custo por modalidade — onde cada proposta é mais forte</h3>
+      <p class="mc-sub">Às vezes uma modalidade sai mais barata no Sicoob e outra na Grupag. O ✓ marca a mais barata pro cliente em cada linha.</p>
+      <div class="mc-head-row"><span>Modalidade</span><span>Sicoob</span><span>Grupag</span></div>
+      <div class="mc-row"><span class="ml">Débito</span><span class="mv" id="mc_deb_sic">—</span><span class="mv" id="mc_deb_gru">—</span></div>
+      <div class="mc-row"><span class="ml">Crédito à vista</span><span class="mv" id="mc_cv_sic">—</span><span class="mv" id="mc_cv_gru">—</span></div>
+      <div class="mc-row"><span class="ml">Crédito parcelado</span><span class="mv" id="mc_cp_sic">—</span><span class="mv" id="mc_cp_gru">—</span></div>
+    </div>
+
     <div class="dash-plus">
       <div class="dsp-head"><span class="dsp-dot"></span><span class="dsp-title">Sicoob soma mais que a maquininha</span></div>
       <p class="dsp-sub">A Grupag é focada só em maquininha de cartão. O Sicoob soma outras receitas ao valor gerado pro cliente — hoje o crédito corporativo, e mais serviços conforme a tabela completa chegar.</p>
@@ -476,7 +497,15 @@
     set(outPrefix+'_tot_atual', fmtBRL(totalA)); set(outPrefix+'_tot_'+sufix.toLowerCase().slice(0,3), fmtBRL(totalP));
     set(resPrefix+'_econMes', fmtBRL(econMes)); set(resPrefix+'_econAno', fmtBRL(econAno));
 
-    return {totalA:totalA, totalP:totalP, econMes:econMes, econAno:econAno, txDebP:txDebP, txCVP:txCVP, txCPP:txCPP};
+    return {totalA:totalA, totalP:totalP, econMes:econMes, econAno:econAno, txDebP:txDebP, txCVP:txCVP, txCPP:txCPP,
+      custoDebP:custoDebP, custoCVP:custoCVP, custoCPP:custoCPP};
+  }
+
+  function setModalityRow(sicId, gruId, sicVal, gruVal){
+    var sicEl = document.getElementById(sicId), gruEl = document.getElementById(gruId);
+    sicEl.textContent = fmtBRL(sicVal); gruEl.textContent = fmtBRL(gruVal);
+    sicEl.classList.toggle('win', sicVal <= gruVal);
+    gruEl.classList.toggle('win', gruVal <= sicVal);
   }
 
   function calc(){
@@ -508,6 +537,10 @@
 
     set('d_gru_txDeb', fmtPct(grupag.txDebP*100)); set('d_gru_txCV', fmtPct(grupag.txCVP*100)); set('d_gru_txCP', fmtPct(grupag.txCPP*100));
     set('d_gru_custo', fmtBRL(grupag.totalP)); set('d_gru_desconto', fmtBRL(grupag.econMes)); set('d_gru_lucro', fmtBRL(grupag.econAno));
+
+    setModalityRow('mc_deb_sic', 'mc_deb_gru', sicMaq.custoDebP, grupag.custoDebP);
+    setModalityRow('mc_cv_sic', 'mc_cv_gru', sicMaq.custoCVP, grupag.custoCVP);
+    setModalityRow('mc_cp_sic', 'mc_cp_gru', sicMaq.custoCPP, grupag.custoCPP);
 
     var sicoobWins = sicMaq.econAno >= grupag.econAno;
     document.getElementById('d_badge_sicoob').hidden = !sicoobWins;
