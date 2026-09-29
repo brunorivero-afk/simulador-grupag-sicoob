@@ -1,0 +1,530 @@
+<title>Simulador Grupag & Sicoob</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  /* layout: one shared "dados do cliente" block feeds two tabbed proposals (Sicoob, Grupag)
+     plus a third dashboard tab comparing them side by side with a "melhor opção" call-out */
+  :root{
+    --bg:#F5F4F0; --surface:#FFFFFF; --surface-2:#FBFAF7;
+    --ink:#0B1B33; --ink-soft:#5A6676; --line:rgba(11,27,51,.12);
+    --grupag:#5B4FD6; --grupag-soft:oklch(0.55 0.16 280 / .08); --grupag-line:oklch(0.55 0.16 280 / .28);
+    --sicoob:#0E7C6B; --sicoob-soft:oklch(0.55 0.11 165 / .08); --sicoob-line:oklch(0.55 0.11 165 / .28);
+    --good:#1C8A5A; --good-soft:oklch(0.62 0.14 155 / .1);
+    --f-display:'Bricolage Grotesque',sans-serif; --f-body:'IBM Plex Sans',system-ui,sans-serif; --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --bg:#12151C; --surface:#1B1F29; --surface-2:#20242F;
+      --ink:#EDEFF4; --ink-soft:#9AA3B5; --line:rgba(237,239,244,.12);
+      --grupag:#9B90FF; --grupag-soft:oklch(0.55 0.16 280 / .16); --grupag-line:oklch(0.55 0.16 280 / .4);
+      --sicoob:#3FBFA6; --sicoob-soft:oklch(0.55 0.11 165 / .16); --sicoob-line:oklch(0.55 0.11 165 / .4);
+      --good:#4FCB8B; --good-soft:oklch(0.62 0.14 155 / .16);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg:#12151C; --surface:#1B1F29; --surface-2:#20242F;
+    --ink:#EDEFF4; --ink-soft:#9AA3B5; --line:rgba(237,239,244,.12);
+    --grupag:#9B90FF; --grupag-soft:oklch(0.55 0.16 280 / .16); --grupag-line:oklch(0.55 0.16 280 / .4);
+    --sicoob:#3FBFA6; --sicoob-soft:oklch(0.55 0.11 165 / .16); --sicoob-line:oklch(0.55 0.11 165 / .4);
+    --good:#4FCB8B; --good-soft:oklch(0.62 0.14 155 / .16);
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--f-body);padding-inline:18px;padding-block:28px;}
+  .wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:20px;}
+
+  .page-head h1{font-family:var(--f-display);font-weight:800;font-size:clamp(24px,3.4vw,34px);letter-spacing:-.02em;margin:0;text-wrap:balance;}
+  .page-head p{margin:4px 0 0;color:var(--ink-soft);font-size:14.5px;max-width:56ch;}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px clamp(16px,3vw,28px) 26px;}
+  .panel-head{display:flex;align-items:center;gap:11px;margin-bottom:18px;}
+  .dot{width:11px;height:11px;border-radius:3px;flex:none;}
+  .panel[data-brand="grupag"] .dot{background:var(--grupag);}
+  .panel[data-brand="sicoob"] .dot{background:var(--sicoob);}
+  .panel[data-brand="cliente"] .dot{background:var(--ink-soft);}
+  .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);}
+  .panel h2{font-family:var(--f-display);font-weight:800;font-size:21px;letter-spacing:-.01em;margin:1px 0 0;}
+
+  .sub-block{padding-top:22px;margin-top:22px;border-top:1px solid var(--line);}
+  .sub-block:first-of-type{padding-top:0;margin-top:0;border-top:none;}
+  .sub-block h3{font-family:var(--f-display);font-weight:700;font-size:16.5px;margin:0 0 16px;letter-spacing:-.005em;}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 22px;}
+  .col-title{grid-column:1/-1;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:14px;margin-top:6px;}
+  .cols > .col-title:first-child{border-top:none;padding-top:0;margin-top:0;}
+  .field-col{display:flex;flex-direction:column;gap:12px;padding-block:10px;}
+  .field{display:flex;flex-direction:column;gap:5px;min-width:0;}
+  .field label{font-size:13px;color:var(--ink);}
+  .num-input{position:relative;display:flex;align-items:center;}
+  .num-input input{width:100%;font:600 15px/1 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 34px 9px 10px;}
+  .num-input input:focus{outline:2px solid var(--grupag);outline-offset:1px;}
+  .panel[data-brand="sicoob"] .num-input input:focus{outline-color:var(--sicoob);}
+  .num-input .suffix{position:absolute;right:10px;font-size:12.5px;color:var(--ink-soft);pointer-events:none;}
+  .num-input .prefix{position:absolute;left:10px;font-size:13px;font-weight:600;color:var(--ink-soft);pointer-events:none;}
+  .num-input input.has-prefix{padding-left:30px;}
+
+  .out-row{display:grid;grid-template-columns:1fr auto auto;gap:6px 14px;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13.5px;}
+  .out-row:last-of-type{border-bottom:none;}
+  .out-row .lbl{color:var(--ink-soft);}
+  .out-row .v1,.out-row .v2{font:600 13.5px/1 var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;min-width:9ch;}
+  .panel[data-brand="grupag"] .out-row .v2{color:var(--grupag);}
+  .panel[data-brand="sicoob"] .out-row .v2{color:var(--sicoob);}
+  .out-head{display:grid;grid-template-columns:1fr auto auto;gap:6px 14px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);padding-bottom:6px;}
+  .out-head span:not(:first-child){text-align:right;min-width:9ch;}
+
+  .result-strip{margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;}
+  .tile{border-radius:13px;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);}
+  .tile .t-label{font-size:11.5px;color:var(--ink-soft);margin-bottom:6px;}
+  .tile .t-value{font:700 20px/1.1 var(--f-mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
+  .tile.client{background:var(--good-soft);border-color:transparent;}
+  .tile.client .t-value{color:var(--good);}
+  .fine-note{margin-top:10px;font-size:11.5px;color:var(--ink-soft);font-style:italic;}
+
+  /* tabs */
+  .tabbar{display:flex;gap:8px;background:transparent;padding:0;}
+  .tabbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 10px;font:600 13.5px var(--f-body);color:var(--ink);cursor:pointer;transition:background .12s,color .12s,border-color .12s,box-shadow .12s;}
+  .tabbtn .tdot{width:8px;height:8px;border-radius:2px;flex:none;background:var(--ink-soft);opacity:.7;}
+  .tabbtn:not(.active):hover{border-color:var(--ink-soft);background:var(--surface-2);}
+  .tabbtn[data-tab="sicoob"].active{background:var(--sicoob);border-color:var(--sicoob);color:#fff;box-shadow:0 2px 10px -4px var(--sicoob);}
+  .tabbtn[data-tab="grupag"].active{background:var(--grupag);border-color:var(--grupag);color:#fff;box-shadow:0 2px 10px -4px var(--grupag);}
+  .tabbtn[data-tab="resumo"].active{background:var(--ink);border-color:var(--ink);color:var(--bg);}
+  .tabbtn.active .tdot{background:#fff;opacity:.9;}
+  .tabpanel[hidden]{display:none;}
+
+  /* dashboard */
+  .dash-baseline{display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:18px;}
+  .dash-baseline .dl{font-size:13px;color:var(--ink-soft);}
+  .dash-baseline .dv{font:700 18px var(--f-mono);font-variant-numeric:tabular-nums;}
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .dash-card{position:relative;border-radius:16px;padding:18px 20px 20px;border:2px solid var(--line);background:var(--surface-2);}
+  .dash-card.winner{border-color:var(--good);background:var(--good-soft);}
+  .dash-card .dc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;}
+  .dash-card .dc-title{font-family:var(--f-display);font-weight:800;font-size:18px;letter-spacing:-.01em;}
+  .dash-card[data-brand="sicoob"] .dc-title{color:var(--sicoob);}
+  .dash-card[data-brand="grupag"] .dc-title{color:var(--grupag);}
+  .badge-best{font:700 10.5px var(--f-body);letter-spacing:.06em;text-transform:uppercase;background:var(--good);color:#fff;border-radius:999px;padding:5px 10px;white-space:nowrap;}
+  .dash-rates{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+  .dash-rates div{display:flex;justify-content:space-between;font-size:12.5px;}
+  .dash-rates .rl{color:var(--ink-soft);}
+  .dash-rates .rv{font:600 12.5px var(--f-mono);font-variant-numeric:tabular-nums;}
+  .dash-figures{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px dashed var(--line);}
+  .dash-figures div{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;}
+  .dash-figures .fl{color:var(--ink-soft);}
+  .dash-figures .fv{font:700 15px var(--f-mono);font-variant-numeric:tabular-nums;}
+  .dash-figures .fv.hi{font-size:19px;color:var(--good);}
+  .dash-recommend{margin-top:16px;display:flex;align-items:center;gap:10px;font-size:14px;}
+  .dash-recommend .arrow{font-size:18px;}
+
+  .dash-plus{margin-top:18px;background:var(--sicoob-soft);border:1.5px solid var(--sicoob-line);border-radius:14px;padding:16px 18px 18px;}
+  .dsp-head{display:flex;align-items:center;gap:9px;margin-bottom:6px;}
+  .dsp-dot{width:9px;height:9px;border-radius:3px;flex:none;background:var(--sicoob);}
+  .dsp-title{font-family:var(--f-display);font-weight:800;font-size:15px;color:var(--sicoob);letter-spacing:-.005em;}
+  .dsp-sub{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft);max-width:60ch;}
+  .dsp-rows{display:flex;flex-direction:column;gap:7px;}
+  .dsp-rows > div{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;gap:10px;}
+  .dsp-rows > div span:first-child{color:var(--ink-soft);}
+  .dsp-rows > div span:last-child{font:600 13px var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink);}
+  .dsp-total{margin-top:5px;padding-top:10px;border-top:1px dashed var(--sicoob-line);}
+  .dsp-total span:first-child{font-weight:600;color:var(--ink)!important;}
+  .dsp-total span:last-child{font-size:18px!important;color:var(--sicoob)!important;}
+
+  .foot-note{font-size:11.5px;color:var(--ink-soft);text-align:center;}
+
+  @media (max-width:640px){
+    .cols{grid-template-columns:1fr;}
+    .col-title{border-top:none;padding-top:0;margin-top:0;}
+    .field-col{border-top:1px solid var(--line);padding-top:14px;}
+    .field-col:first-of-type{border-top:none;padding-top:0;}
+    .out-row,.out-head{grid-template-columns:1fr auto;}
+    .out-row .v1,.out-head span:nth-child(2){display:none;}
+    .dash-grid{grid-template-columns:1fr;}
+    .tabbtn{font-size:12px;padding:10px 6px;}
+  }
+</style>
+
+<div class="wrap">
+  <div class="page-head">
+    <h1>Simulador Grupag &amp; Sicoob</h1>
+    <p>Preencha os dados do cliente uma vez, compare a proposta Sicoob e a Grupag, e veja no Resumo qual opção economiza mais.</p>
+  </div>
+
+  <!-- ===== DADOS DO CLIENTE (compartilhado) ===== -->
+  <section class="panel" data-brand="cliente">
+    <div class="panel-head">
+      <span class="dot"></span>
+      <div><div class="eyebrow">Preencha uma vez</div><h2>Dados do cliente — maquininha</h2></div>
+    </div>
+    <div class="cols">
+      <div class="col-title">Faturamento mensal do cliente</div>
+      <div class="field-col">
+        <div class="field"><label for="c_fatDeb">Débito</label>
+          <div class="num-input"><span class="prefix">R$</span><input id="c_fatDeb" class="has-prefix" type="text" inputmode="decimal" value="50000"></div>
+        </div>
+      </div>
+      <div class="field-col">
+        <div class="field"><label for="c_fatCV">Crédito à vista</label>
+          <div class="num-input"><span class="prefix">R$</span><input id="c_fatCV" class="has-prefix" type="text" inputmode="decimal" value="100000"></div>
+        </div>
+      </div>
+      <div class="field-col">
+        <div class="field"><label for="c_fatCP">Crédito parcelado</label>
+          <div class="num-input"><span class="prefix">R$</span><input id="c_fatCP" class="has-prefix" type="text" inputmode="decimal" value="150000"></div>
+        </div>
+      </div>
+
+      <div class="col-title">Taxa atual (banco/adquirente do cliente)</div>
+      <div class="field-col">
+        <div class="field"><label for="c_txDebAtual">Débito</label>
+          <div class="num-input"><input id="c_txDebAtual" type="text" inputmode="decimal" value="2,00"><span class="suffix">%</span></div>
+        </div>
+      </div>
+      <div class="field-col">
+        <div class="field"><label for="c_txCVAtual">Crédito à vista</label>
+          <div class="num-input"><input id="c_txCVAtual" type="text" inputmode="decimal" value="3,50"><span class="suffix">%</span></div>
+        </div>
+      </div>
+      <div class="field-col">
+        <div class="field"><label for="c_txCPAtual">Crédito parcelado</label>
+          <div class="num-input"><input id="c_txCPAtual" type="text" inputmode="decimal" value="4,50"><span class="suffix">%</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="tabbar" role="tablist">
+    <button class="tabbtn active" data-tab="sicoob" type="button"><span class="tdot"></span>Sicoob</button>
+    <button class="tabbtn" data-tab="grupag" type="button"><span class="tdot"></span>Grupag</button>
+    <button class="tabbtn" data-tab="resumo" type="button"><span class="tdot"></span>Resumo</button>
+  </div>
+
+  <!-- ===== TAB: SICOOB ===== -->
+  <section class="panel tabpanel" data-brand="sicoob" data-tabpanel="sicoob">
+    <div class="panel-head">
+      <span class="dot"></span>
+      <div><div class="eyebrow">Prioridade da rede</div><h2>Simulador Sicoob</h2></div>
+    </div>
+
+    <div class="sub-block">
+      <h3>Maquininha de cartão</h3>
+      <div class="cols">
+        <div class="col-title">Proposta Sicoob</div>
+        <div class="field-col">
+          <div class="field"><label for="sm_txDebSic">Débito</label>
+            <div class="num-input"><input id="sm_txDebSic" type="text" inputmode="decimal" value="1,10"><span class="suffix">%</span></div>
+          </div>
+        </div>
+        <div class="field-col">
+          <div class="field"><label for="sm_txCVSic">Crédito à vista</label>
+            <div class="num-input"><input id="sm_txCVSic" type="text" inputmode="decimal" value="2,30"><span class="suffix">%</span></div>
+          </div>
+        </div>
+        <div class="field-col">
+          <div class="field"><label for="sm_txCPSic">Crédito parcelado</label>
+            <div class="num-input"><input id="sm_txCPSic" type="text" inputmode="decimal" value="3,00"><span class="suffix">%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px;">
+        <div class="out-head"><span>Custo mensal de cartão</span><span>Atual</span><span>Sicoob</span></div>
+        <div class="out-row"><span class="lbl">Débito</span><span class="v1" id="sm_out_deb_atual">—</span><span class="v2" id="sm_out_deb_sic">—</span></div>
+        <div class="out-row"><span class="lbl">Crédito à vista</span><span class="v1" id="sm_out_cv_atual">—</span><span class="v2" id="sm_out_cv_sic">—</span></div>
+        <div class="out-row"><span class="lbl">Crédito parcelado</span><span class="v1" id="sm_out_cp_atual">—</span><span class="v2" id="sm_out_cp_sic">—</span></div>
+        <div class="out-row" style="border-top:1px solid var(--line);margin-top:2px;padding-top:10px;"><span class="lbl" style="font-weight:600;color:var(--ink);">Total mensal</span><span class="v1" id="sm_out_tot_atual">—</span><span class="v2" id="sm_out_tot_sic">—</span></div>
+      </div>
+
+      <div class="result-strip">
+        <div class="tile client"><div class="t-label">Economia mensal do cliente</div><div class="t-value" id="sm_res_econMes">—</div></div>
+        <div class="tile client"><div class="t-label">Economia anual do cliente</div><div class="t-value" id="sm_res_econAno">—</div></div>
+      </div>
+      <p class="fine-note">Taxas da maquininha Sicoob provisórias — ajustamos assim que a tabela oficial chegar.</p>
+    </div>
+
+    <div class="sub-block">
+      <h3>Crédito corporativo</h3>
+      <div class="cols">
+        <div class="col-title">Dados da operação</div>
+        <div class="field-col">
+          <div class="field"><label for="s_valor">Valor do crédito</label>
+            <div class="num-input"><span class="prefix">R$</span><input id="s_valor" class="has-prefix" type="text" inputmode="decimal" value="500000"></div>
+          </div>
+        </div>
+        <div class="field-col">
+          <div class="field"><label for="s_prazo">Prazo</label>
+            <div class="num-input"><input id="s_prazo" type="text" inputmode="numeric" value="36"><span class="suffix">meses</span></div>
+          </div>
+        </div>
+        <div class="field-col"></div>
+
+        <div class="col-title">Taxa de juros ao mês</div>
+        <div class="field-col">
+          <div class="field"><label for="s_txAtual">Banco tradicional</label>
+            <div class="num-input"><input id="s_txAtual" type="text" inputmode="decimal" value="2,10"><span class="suffix">%</span></div>
+          </div>
+        </div>
+        <div class="field-col">
+          <div class="field"><label for="s_txSicoob">Proposta Sicoob</label>
+            <div class="num-input"><input id="s_txSicoob" type="text" inputmode="decimal" value="1,45"><span class="suffix">%</span></div>
+          </div>
+        </div>
+        <div class="field-col"></div>
+      </div>
+
+      <div style="margin-top:18px;">
+        <div class="out-head"><span>Simulação das parcelas</span><span>Tradicional</span><span>Sicoob</span></div>
+        <div class="out-row"><span class="lbl">Parcela mensal</span><span class="v1" id="s_out_parc_atual">—</span><span class="v2" id="s_out_parc_sicoob">—</span></div>
+        <div class="out-row"><span class="lbl">Total de juros no contrato</span><span class="v1" id="s_out_juros_atual">—</span><span class="v2" id="s_out_juros_sicoob">—</span></div>
+      </div>
+
+      <div class="result-strip">
+        <div class="tile client"><div class="t-label">Economia mensal do cliente</div><div class="t-value" id="s_res_econMes">—</div></div>
+        <div class="tile client"><div class="t-label">Economia anual do cliente</div><div class="t-value" id="s_res_econAno">—</div></div>
+        <div class="tile client"><div class="t-label">Economia total no contrato</div><div class="t-value" id="s_res_econTotal">—</div></div>
+      </div>
+    </div>
+
+    <p class="fine-note">Mais serviços Sicoob entram aqui assim que a tabela completa chegar.</p>
+  </section>
+
+  <!-- ===== TAB: GRUPAG ===== -->
+  <section class="panel tabpanel" data-brand="grupag" data-tabpanel="grupag" hidden>
+    <div class="panel-head">
+      <span class="dot"></span>
+      <div><div class="eyebrow">Quando o Sicoob não cobre a taxa do cliente</div><h2>Simulador Grupag</h2></div>
+    </div>
+
+    <div class="cols">
+      <div class="col-title">Proposta Grupag</div>
+      <div class="field-col">
+        <div class="field"><label for="g_txDebGru">Débito</label>
+          <div class="num-input"><input id="g_txDebGru" type="text" inputmode="decimal" value="1,20"><span class="suffix">%</span></div>
+        </div>
+      </div>
+      <div class="field-col">
+        <div class="field"><label for="g_txCVGru">Crédito à vista</label>
+          <div class="num-input"><input id="g_txCVGru" type="text" inputmode="decimal" value="2,50"><span class="suffix">%</span></div>
+        </div>
+      </div>
+      <div class="field-col">
+        <div class="field"><label for="g_txCPGru">Crédito parcelado</label>
+          <div class="num-input"><input id="g_txCPGru" type="text" inputmode="decimal" value="3,20"><span class="suffix">%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:18px;">
+      <div class="out-head"><span>Custo mensal de cartão</span><span>Atual</span><span>Grupag</span></div>
+      <div class="out-row"><span class="lbl">Débito</span><span class="v1" id="g_out_deb_atual">—</span><span class="v2" id="g_out_deb_gru">—</span></div>
+      <div class="out-row"><span class="lbl">Crédito à vista</span><span class="v1" id="g_out_cv_atual">—</span><span class="v2" id="g_out_cv_gru">—</span></div>
+      <div class="out-row"><span class="lbl">Crédito parcelado</span><span class="v1" id="g_out_cp_atual">—</span><span class="v2" id="g_out_cp_gru">—</span></div>
+      <div class="out-row" style="border-top:1px solid var(--line);margin-top:2px;padding-top:10px;"><span class="lbl" style="font-weight:600;color:var(--ink);">Total mensal</span><span class="v1" id="g_out_tot_atual">—</span><span class="v2" id="g_out_tot_gru">—</span></div>
+    </div>
+
+    <div class="result-strip">
+      <div class="tile client"><div class="t-label">Economia mensal do cliente</div><div class="t-value" id="g_res_econMes">—</div></div>
+      <div class="tile client"><div class="t-label">Economia anual do cliente</div><div class="t-value" id="g_res_econAno">—</div></div>
+    </div>
+  </section>
+
+  <!-- ===== TAB: RESUMO / DASHBOARD ===== -->
+  <section class="panel tabpanel" data-tabpanel="resumo" hidden>
+    <div class="panel-head">
+      <span class="dot" style="background:var(--ink-soft);"></span>
+      <div><div class="eyebrow">Painel de comparação</div><h2>Resumo — Sicoob x Grupag</h2></div>
+    </div>
+
+    <div class="dash-baseline">
+      <span class="dl">Custo mensal atual do cliente (maquininha)</span>
+      <span class="dv" id="d_custoAtual">—</span>
+    </div>
+
+    <div class="dash-grid">
+      <div class="dash-card" data-brand="sicoob" id="d_card_sicoob">
+        <div class="dc-head">
+          <div class="dc-title">Sicoob</div>
+          <span class="badge-best" id="d_badge_sicoob" hidden>Melhor opção</span>
+        </div>
+        <div class="dash-rates">
+          <div><span class="rl">Débito</span><span class="rv" id="d_sic_txDeb">—</span></div>
+          <div><span class="rl">Crédito à vista</span><span class="rv" id="d_sic_txCV">—</span></div>
+          <div><span class="rl">Crédito parcelado</span><span class="rv" id="d_sic_txCP">—</span></div>
+        </div>
+        <div class="dash-figures">
+          <div><span class="fl">Custo mensal</span><span class="fv" id="d_sic_custo">—</span></div>
+          <div><span class="fl">Desconto mensal</span><span class="fv" id="d_sic_desconto">—</span></div>
+          <div><span class="fl">Lucro do cliente / ano</span><span class="fv hi" id="d_sic_lucro">—</span></div>
+        </div>
+      </div>
+
+      <div class="dash-card" data-brand="grupag" id="d_card_grupag">
+        <div class="dc-head">
+          <div class="dc-title">Grupag</div>
+          <span class="badge-best" id="d_badge_grupag" hidden>Melhor opção</span>
+        </div>
+        <div class="dash-rates">
+          <div><span class="rl">Débito</span><span class="rv" id="d_gru_txDeb">—</span></div>
+          <div><span class="rl">Crédito à vista</span><span class="rv" id="d_gru_txCV">—</span></div>
+          <div><span class="rl">Crédito parcelado</span><span class="rv" id="d_gru_txCP">—</span></div>
+        </div>
+        <div class="dash-figures">
+          <div><span class="fl">Custo mensal</span><span class="fv" id="d_gru_custo">—</span></div>
+          <div><span class="fl">Desconto mensal</span><span class="fv" id="d_gru_desconto">—</span></div>
+          <div><span class="fl">Lucro do cliente / ano</span><span class="fv hi" id="d_gru_lucro">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-recommend">
+      <span class="arrow">→</span>
+      <span id="d_recommendText">—</span>
+    </div>
+
+    <div class="dash-plus">
+      <div class="dsp-head"><span class="dsp-dot"></span><span class="dsp-title">Sicoob soma mais que a maquininha</span></div>
+      <p class="dsp-sub">A Grupag é focada só em maquininha de cartão. O Sicoob soma outras receitas ao valor gerado pro cliente — hoje o crédito corporativo, e mais serviços conforme a tabela completa chegar.</p>
+      <div class="dsp-rows">
+        <div><span>Maquininha (economia/ano)</span><span id="d_sic_plus_maq">—</span></div>
+        <div><span>Crédito corporativo (economia/ano)</span><span id="d_sic_plus_credito">—</span></div>
+        <div class="dsp-total"><span>Total Sicoob somado (ano)</span><span id="d_sic_plus_total">—</span></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot-note">Valores ilustrativos calculados a partir dos números informados. Ajuste qualquer campo para simular outro cenário.</p>
+</div>
+
+<script>
+(function(){
+  function parseNum(str){
+    if(typeof str !== 'string') return 0;
+    var s = str.trim().replace(/[R$\s]/g,'');
+    if(s === '') return 0;
+    if(s.indexOf(',') > -1){
+      // Brazilian format with decimals: dots are thousands separators, comma is the decimal point
+      s = s.replace(/\./g,'').replace(',', '.');
+    } else if(/^\d{1,3}(\.\d{3})+$/.test(s)){
+      // Brazilian format, integer only: dots are thousands separators (e.g. "150.000" = 150000)
+      s = s.replace(/\./g,'');
+    }
+    // otherwise a lone dot with 1-2 digits after it is a plain decimal (e.g. "2.5") — leave as-is
+    var n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+  function fmtBRL(n){
+    if(!isFinite(n)) n = 0;
+    return n.toLocaleString('pt-BR', {style:'currency', currency:'BRL', maximumFractionDigits:2});
+  }
+  function fmtPct(n){ return n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '%'; }
+  function val(id){ return parseNum(document.getElementById(id).value); }
+  function pct(id){ return val(id) / 100; }
+  function set(id, text){ document.getElementById(id).textContent = text; }
+  function pmt(rate, nper, pv){
+    if(rate === 0) return pv / nper;
+    return pv * rate / (1 - Math.pow(1+rate, -nper));
+  }
+
+  // shared card-machine calc — client data (fatura + taxa atual) is shared via c_*,
+  // only the proposed rate fields differ between Sicoob (sm_) and Grupag (g_)
+  function cardMachine(prefix){
+    var fatDeb = val('c_fatDeb'), fatCV = val('c_fatCV'), fatCP = val('c_fatCP');
+    var txDebA = pct('c_txDebAtual'), txCVA = pct('c_txCVAtual'), txCPA = pct('c_txCPAtual');
+    var sufix = prefix === 'g' ? 'Gru' : 'Sic';
+    var txDebP = pct(prefix+'_txDeb'+sufix), txCVP = pct(prefix+'_txCV'+sufix), txCPP = pct(prefix+'_txCP'+sufix);
+
+    var custoDebA = fatDeb*txDebA, custoCVA = fatCV*txCVA, custoCPA = fatCP*txCPA;
+    var custoDebP = fatDeb*txDebP, custoCVP = fatCV*txCVP, custoCPP = fatCP*txCPP;
+    var totalA = custoDebA+custoCVA+custoCPA, totalP = custoDebP+custoCVP+custoCPP;
+    var econMes = totalA - totalP, econAno = econMes*12;
+
+    var outPrefix = prefix === 'g' ? 'g_out' : 'sm_out';
+    var resPrefix = prefix === 'g' ? 'g_res' : 'sm_res';
+    set(outPrefix+'_deb_atual', fmtBRL(custoDebA)); set(outPrefix+'_deb_'+sufix.toLowerCase().slice(0,3), fmtBRL(custoDebP));
+    set(outPrefix+'_cv_atual', fmtBRL(custoCVA)); set(outPrefix+'_cv_'+sufix.toLowerCase().slice(0,3), fmtBRL(custoCVP));
+    set(outPrefix+'_cp_atual', fmtBRL(custoCPA)); set(outPrefix+'_cp_'+sufix.toLowerCase().slice(0,3), fmtBRL(custoCPP));
+    set(outPrefix+'_tot_atual', fmtBRL(totalA)); set(outPrefix+'_tot_'+sufix.toLowerCase().slice(0,3), fmtBRL(totalP));
+    set(resPrefix+'_econMes', fmtBRL(econMes)); set(resPrefix+'_econAno', fmtBRL(econAno));
+
+    return {totalA:totalA, totalP:totalP, econMes:econMes, econAno:econAno, txDebP:txDebP, txCVP:txCVP, txCPP:txCPP};
+  }
+
+  function calc(){
+    var grupag = cardMachine('g');
+    var sicMaq = cardMachine('sm');
+
+    // ---- Sicoob crédito corporativo ----
+    var valorCredito = val('s_valor'), prazo = Math.max(1, Math.round(val('s_prazo')));
+    var txAtual = pct('s_txAtual'), txSicoob = pct('s_txSicoob');
+
+    var parcAtual = pmt(txAtual, prazo, valorCredito);
+    var parcSicoob = pmt(txSicoob, prazo, valorCredito);
+    var jurosAtual = parcAtual*prazo - valorCredito;
+    var jurosSicoob = parcSicoob*prazo - valorCredito;
+    var econParc = parcAtual - parcSicoob;
+    var econAnoSicoob = econParc * 12;
+    var econTotalContrato = econParc * prazo;
+
+    set('s_out_parc_atual', fmtBRL(parcAtual)); set('s_out_parc_sicoob', fmtBRL(parcSicoob));
+    set('s_out_juros_atual', fmtBRL(jurosAtual)); set('s_out_juros_sicoob', fmtBRL(jurosSicoob));
+    set('s_res_econMes', fmtBRL(econParc)); set('s_res_econAno', fmtBRL(econAnoSicoob));
+    set('s_res_econTotal', fmtBRL(econTotalContrato));
+
+    // ---- Dashboard (Resumo) ----
+    set('d_custoAtual', fmtBRL(sicMaq.totalA)); // same "atual" base for both, since client data is shared
+
+    set('d_sic_txDeb', fmtPct(sicMaq.txDebP*100)); set('d_sic_txCV', fmtPct(sicMaq.txCVP*100)); set('d_sic_txCP', fmtPct(sicMaq.txCPP*100));
+    set('d_sic_custo', fmtBRL(sicMaq.totalP)); set('d_sic_desconto', fmtBRL(sicMaq.econMes)); set('d_sic_lucro', fmtBRL(sicMaq.econAno));
+
+    set('d_gru_txDeb', fmtPct(grupag.txDebP*100)); set('d_gru_txCV', fmtPct(grupag.txCVP*100)); set('d_gru_txCP', fmtPct(grupag.txCPP*100));
+    set('d_gru_custo', fmtBRL(grupag.totalP)); set('d_gru_desconto', fmtBRL(grupag.econMes)); set('d_gru_lucro', fmtBRL(grupag.econAno));
+
+    var sicoobWins = sicMaq.econAno >= grupag.econAno;
+    document.getElementById('d_badge_sicoob').hidden = !sicoobWins;
+    document.getElementById('d_badge_grupag').hidden = sicoobWins;
+    document.getElementById('d_card_sicoob').classList.toggle('winner', sicoobWins);
+    document.getElementById('d_card_grupag').classList.toggle('winner', !sicoobWins);
+
+    var diff = Math.abs(sicMaq.econAno - grupag.econAno);
+    var recommendText;
+    if(sicoobWins){
+      recommendText = 'Sicoob é a prioridade e também economiza mais — ' + fmtBRL(diff) + ' a mais por ano que a Grupag.';
+    } else {
+      recommendText = 'Sicoob é a prioridade, mas aqui não cobre a taxa do cliente — a Grupag economiza ' + fmtBRL(diff) + ' a mais por ano. Use a Grupag nesse caso.';
+    }
+    set('d_recommendText', recommendText);
+
+    set('d_sic_plus_maq', fmtBRL(sicMaq.econAno));
+    set('d_sic_plus_credito', fmtBRL(econAnoSicoob));
+    set('d_sic_plus_total', fmtBRL(sicMaq.econAno + econAnoSicoob));
+  }
+
+  document.querySelectorAll('.wrap input').forEach(function(inp){
+    inp.addEventListener('input', calc);
+    inp.addEventListener('blur', function(){
+      // light normalize on blur so the field reads cleanly after typing
+      var n = parseNum(inp.value);
+      if(/tx|perc/i.test(inp.id)){
+        inp.value = n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+      } else if(inp.id === 's_prazo'){
+        inp.value = String(Math.round(n));
+      } else {
+        inp.value = n.toLocaleString('pt-BR', {maximumFractionDigits:0});
+      }
+      calc();
+    });
+  });
+
+  // tabs
+  var tabbtns = document.querySelectorAll('.tabbtn');
+  var tabpanels = document.querySelectorAll('.tabpanel');
+  tabbtns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var target = btn.getAttribute('data-tab');
+      tabbtns.forEach(function(b){ b.classList.toggle('active', b === btn); });
+      tabpanels.forEach(function(p){ p.hidden = p.getAttribute('data-tabpanel') !== target; });
+    });
+  });
+
+  calc();
+})();
+</script>
