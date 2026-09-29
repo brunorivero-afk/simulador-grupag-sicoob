@@ -131,6 +131,11 @@
 
   .foot-note{font-size:11.5px;color:var(--ink-soft);text-align:center;}
 
+  .page-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+  .theme-toggle{flex:none;width:42px;height:42px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--line);background:var(--surface);border-radius:11px;cursor:pointer;color:var(--ink);transition:background .12s,border-color .12s;}
+  .theme-toggle:hover{background:var(--surface-2);border-color:var(--ink-soft);}
+  .theme-toggle svg{width:19px;height:19px;}
+
   @media (max-width:640px){
     .cols{grid-template-columns:1fr;}
     .col-title{border-top:none;padding-top:0;margin-top:0;}
@@ -144,9 +149,12 @@
 </style>
 
 <div class="wrap">
-  <div class="page-head">
-    <h1>Simulador Grupag &amp; Sicoob</h1>
-    <p>Preencha os dados do cliente uma vez, compare a proposta Sicoob e a Grupag, e veja no Resumo qual opção economiza mais.</p>
+  <div class="page-head-row">
+    <div class="page-head">
+      <h1>Simulador Grupag &amp; Sicoob</h1>
+      <p>Preencha os dados do cliente uma vez, compare a proposta Sicoob e a Grupag, e veja no Resumo qual opção economiza mais.</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar tema claro/escuro"></button>
   </div>
 
   <!-- ===== DADOS DO CLIENTE (compartilhado) ===== -->
@@ -396,6 +404,29 @@
 
 <script>
 (function(){
+  // theme toggle — explicit choice wins over the OS/host preference, remembered per browser only
+  var SUN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.3"></circle><path d="M12 2.5v2.6M12 18.9v2.6M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12h2.6M18.9 12h2.6M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>';
+  var MOON_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.4 14.7A8.6 8.6 0 0 1 9.3 3.6a.7.7 0 0 0-.9-.9 9.9 9.9 0 1 0 12.9 12.9.7.7 0 0 0-.9-.9z"/></svg>';
+  (function initTheme(){
+    var root = document.documentElement, btn = document.getElementById('themeToggle');
+    var stored = null;
+    try{ stored = localStorage.getItem('sgs_theme'); }catch(e){}
+    if(stored === 'dark' || stored === 'light') root.setAttribute('data-theme', stored);
+    function effective(){
+      var attr = root.getAttribute('data-theme');
+      if(attr === 'dark' || attr === 'light') return attr;
+      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+    function paint(){ btn.innerHTML = effective() === 'dark' ? SUN_ICON : MOON_ICON; }
+    paint();
+    btn.addEventListener('click', function(){
+      var next = effective() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try{ localStorage.setItem('sgs_theme', next); }catch(e){}
+      paint();
+    });
+  })();
+
   function parseNum(str){
     if(typeof str !== 'string') return 0;
     var s = str.trim().replace(/[R$\s]/g,'');
